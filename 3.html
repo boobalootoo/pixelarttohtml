@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pixel Art Converter</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .pixel {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin: 0;
+      padding: 0;
+      border: none;
+    }
+    #pixelatedImage {
+      display: none;
+      margin-top: 1rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.5rem;
+      overflow: hidden;
+    }
+    #pixelatedImage > div {
+      line-height: 0;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 p-8">
+  <div class="container mx-auto p-8 bg-white rounded-lg shadow-md">
+    <h1 class="text-3xl font-semibold mb-6 text-center text-blue-600">Pixel Art to HTML Converter</h1>
+
+    <!-- Upload -->
+    <div class="mb-6">
+      <label for="imageUpload" class="inline-flex items-center justify-center px-5 py-3 bg-blue-600 text-white font-medium rounded-md shadow-md cursor-pointer hover:bg-blue-700 transition-colors">
+        Upload Image
+        <input type="file" id="imageUpload" accept="image/*" class="hidden">
+      </label>
+      <p id="file-name" class="mt-2 text-sm text-gray-500"></p>
+    </div>
+
+    <!-- Slider -->
+    <div class="mb-6">
+      <label class="block text-gray-700 text-sm font-bold mb-2">Pixels Across: <span id="pixelAcrossValue">20</span></label>
+      <input type="range" min="5" max="100" value="20" id="pixelAcrossSlider" class="w-full">
+      <p class="text-sm mt-2 text-gray-500">Pixels Up (auto): <span id="pixelHeightDisplay">?</span></p>
+    </div>
+
+    <!-- Preview -->
+    <div id="imagePreview" class="mb-6" style="display:none;">
+      <img id="previewImage" src="#" alt="Image Preview" class="max-w-full rounded-md shadow-md">
+    </div>
+
+    <!-- Generate -->
+    <div class="mb-6">
+      <button id="generateHTML" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-md shadow-md">Generate HTML</button>
+    </div>
+
+    <!-- Output -->
+    <div class="mb-6">
+      <label class="block text-gray-700 text-sm font-bold mb-2">HTML Output:</label>
+      <textarea id="htmlOutput" rows="10" class="w-full bg-gray-50 text-xs font-mono p-2 rounded-md shadow-sm"></textarea>
+      <div class="mt-2 flex gap-2">
+        <button id="copyHTML" class="bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded">Copy HTML</button>
+        <button id="saveImage" class="bg-purple-500 hover:bg-purple-600 text-white py-1 px-3 rounded">Save Image</button>
+      </div>
+    </div>
+
+    <!-- Display -->
+    <div id="pixelatedImage" class="mb-6"></div>
+    <p id="error-message" class="text-red-500 text-sm italic" style="display:none;"></p>
+  </div>
+
+  <script>
+    const imageUpload = document.getElementById('imageUpload');
+    const imagePreview = document.getElementById('imagePreview');
+    const previewImage = document.getElementById('previewImage');
+    const generateHTMLButton = document.getElementById('generateHTML');
+    const htmlOutput = document.getElementById('htmlOutput');
+    const pixelatedImageContainer = document.getElementById('pixelatedImage');
+    const fileNameDisplay = document.getElementById('file-name');
+    const errorMessage = document.getElementById('error-message');
+    const pixelAcrossSlider = document.getElementById('pixelAcrossSlider');
+    const pixelAcrossValue = document.getElementById('pixelAcrossValue');
+    const pixelHeightDisplay = document.getElementById('pixelHeightDisplay');
+    const copyHTMLButton = document.getElementById('copyHTML');
+    const saveImageButton = document.getElementById('saveImage');
+
+    let imgAspectRatio = 1;
+
+    imageUpload.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const img = new Image();
+          img.onload = function() {
+            previewImage.src = img.src;
+            imagePreview.style.display = 'block';
+            imgAspectRatio = img.height / img.width;
+            pixelHeightDisplay.textContent = Math.round(pixelAcrossSlider.value * imgAspectRatio);
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+        fileNameDisplay.textContent = `Selected file: ${file.name}`;
+        errorMessage.style.display = "none";
+      }
+    });
+
+    pixelAcrossSlider.addEventListener('input', () => {
+      pixelAcrossValue.textContent = pixelAcrossSlider.value;
+      pixelHeightDisplay.textContent = Math.round(pixelAcrossSlider.value * imgAspectRatio);
+    });
+
+    generateHTMLButton.addEventListener('click', function() {
+      const file = imageUpload.files[0];
+      const targetPixelWidth = parseInt(pixelAcrossSlider.value);
+      const targetPixelHeight = Math.round(targetPixelWidth * imgAspectRatio);
+
+      if (!file) {
+        errorMessage.textContent = "Please upload an image first.";
+        errorMessage.style.display = "block";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          const xScale = img.width / targetPixelWidth;
+          const yScale = img.height / targetPixelHeight;
+
+          let html = `<div style="display:grid; grid-template-columns:repeat(${targetPixelWidth}, 0fr); grid-template-rows:repeat(${targetPixelHeight}, 0fr);">\n`;
+          for (let y = 0; y < targetPixelHeight; y++) {
+            for (let x = 0; x < targetPixelWidth; x++) {
+              const px = Math.floor(x * xScale);
+              const py = Math.floor(y * yScale);
+              const [r, g, b] = ctx.getImageData(px, py, 1, 1).data;
+              html += `<div class="pixel" style="background-color: rgb(${r}, ${g}, ${b});"></div>\n`;
+            }
+          }
+          html += '</div>';
+
+          htmlOutput.value = html;
+          pixelatedImageContainer.innerHTML = html;
+          pixelatedImageContainer.style.display = 'block';
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    copyHTMLButton.addEventListener('click', () => {
+      navigator.clipboard.writeText(htmlOutput.value).then(() => {
+        alert('HTML copied to clipboard!');
+      });
+    });
+
+    saveImageButton.addEventListener('click', () => {
+      html2canvas(pixelatedImageContainer).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'pixel-art.png';
+        link.href = canvas.toDataURL();
+        link.click();
+      });
+    });
+
+    // Load html2canvas
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>
