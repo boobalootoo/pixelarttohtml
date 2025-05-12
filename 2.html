@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pixel Art Converter</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .pixel {
+      display: inline-block;
+      margin: 0;
+      padding: 0;
+      border: none;
+    }
+    #pixelatedImage {
+      margin-top: 1rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.5rem;
+      overflow: hidden;
+      display: none;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 p-8">
+  <div class="container mx-auto p-8 bg-white rounded-lg shadow-md">
+    <h1 class="text-3xl font-semibold mb-6 text-center text-blue-600">Pixel Art to HTML Converter</h1>
+    
+    <!-- Upload Section -->
+    <div class="mb-6">
+      <label for="imageUpload" class="inline-flex items-center justify-center px-5 py-3 bg-blue-600 text-white font-medium rounded-md shadow-md cursor-pointer hover:bg-blue-700">
+        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-11-4l-4-4m0 0l4-4m-4 4h12"></path></svg>
+        Upload Image
+        <input type="file" id="imageUpload" accept="image/*" class="hidden">
+      </label>
+      <p id="file-name" class="mt-2 text-sm text-gray-500"></p>
+    </div>
+
+    <!-- Controls -->
+    <div class="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div>
+        <label for="pixelWidth" class="block text-gray-700 text-sm font-bold mb-1">Pixels Across:</label>
+        <input type="number" id="pixelWidth" value="10" min="1" class="w-full border rounded py-2 px-3 text-gray-700 focus:outline-none focus:ring">
+      </div>
+      <div>
+        <label for="pixelHeight" class="block text-gray-700 text-sm font-bold mb-1">Pixels Up:</label>
+        <input type="number" id="pixelHeight" value="10" min="1" class="w-full border rounded py-2 px-3 text-gray-700 focus:outline-none focus:ring">
+      </div>
+      <div>
+        <label for="pixelSize" class="block text-gray-700 text-sm font-bold mb-1">Pixel Size (px):</label>
+        <input type="number" id="pixelSize" value="10" min="1" class="w-full border rounded py-2 px-3 text-gray-700 focus:outline-none focus:ring">
+      </div>
+    </div>
+
+    <!-- Generate Button -->
+    <div class="mb-6">
+      <button id="generateHTML" class="w-full bg-gradient-to-r from-green-400 to-blue-500 hover:from-green-500 hover:to-blue-600 text-white font-bold py-2 px-4 rounded-md shadow-md">
+        Generate HTML
+      </button>
+    </div>
+
+    <!-- HTML Output -->
+    <div class="mb-6">
+      <label for="htmlOutput" class="block text-gray-700 text-sm font-bold mb-2">HTML Output:</label>
+      <textarea id="htmlOutput" rows="10" class="w-full border rounded py-2 px-3 font-mono text-xs bg-gray-50 focus:outline-none focus:ring"></textarea>
+    </div>
+
+    <!-- Pixelated Image Preview -->
+    <div class="mb-6">
+      <div id="pixelatedImage" class="mt-4"></div>
+    </div>
+
+    <p id="error-message" class="text-red-500 text-sm italic hidden"></p>
+  </div>
+
+  <script>
+    const imageUpload = document.getElementById('imageUpload');
+    const generateHTMLButton = document.getElementById('generateHTML');
+    const htmlOutput = document.getElementById('htmlOutput');
+    const pixelWidthInput = document.getElementById('pixelWidth');
+    const pixelHeightInput = document.getElementById('pixelHeight');
+    const pixelSizeInput = document.getElementById('pixelSize');
+    const pixelatedImageContainer = document.getElementById('pixelatedImage');
+    const fileNameDisplay = document.getElementById('file-name');
+    const errorMessage = document.getElementById('error-message');
+
+    imageUpload.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      fileNameDisplay.textContent = `Selected file: ${file.name}`;
+      errorMessage.classList.add("hidden");
+    });
+
+    generateHTMLButton.addEventListener('click', function() {
+      const file = imageUpload.files[0];
+      const targetWidth = parseInt(pixelWidthInput.value);
+      const targetHeight = parseInt(pixelHeightInput.value);
+      const pixelSize = parseInt(pixelSizeInput.value);
+
+      if (!file || isNaN(targetWidth) || isNaN(targetHeight) || isNaN(pixelSize)) {
+        errorMessage.textContent = "Please upload an image and enter valid numbers.";
+        errorMessage.classList.remove("hidden");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+          let html = `<div style="display: grid; grid-template-columns: repeat(${targetWidth}, ${pixelSize}px); grid-template-rows: repeat(${targetHeight}, ${pixelSize}px);">\n`;
+
+          for (let y = 0; y < targetHeight; y++) {
+            for (let x = 0; x < targetWidth; x++) {
+              const pixel = ctx.getImageData(x, y, 1, 1).data;
+              const color = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+              html += `<div class="pixel" style="width:${pixelSize}px;height:${pixelSize}px;background-color:${color};"></div>\n`;
+            }
+          }
+
+          html += "</div>";
+          htmlOutput.value = html;
+          pixelatedImageContainer.innerHTML = html;
+          pixelatedImageContainer.style.display = "block";
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  </script>
+</body>
+</html>
