@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pixel Art Converter</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    .pixel {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 p-8">
+  <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+    <h1 class="text-3xl font-semibold text-center mb-6 text-blue-600">Pixel Art Converter</h1>
+
+    <!-- Upload -->
+    <label class="block mb-4">
+      <span class="text-gray-700 font-medium">Upload Image:</span>
+      <input type="file" id="imageUpload" accept="image/*" class="mt-2">
+      <p class="text-sm text-gray-500" id="fileName"></p>
+    </label>
+
+    <!-- Slider -->
+    <label class="block mb-4">
+      <span class="text-gray-700 font-medium">Pixels Across: <span id="pixelAcrossValue">20</span></span>
+      <input type="range" min="5" max="100" value="20" id="pixelAcrossSlider" class="w-full">
+      <p class="text-sm text-gray-500">Pixels Up (auto): <span id="pixelHeightDisplay">?</span></p>
+    </label>
+
+    <!-- Mode -->
+    <div class="mb-4">
+      <label class="text-gray-700 font-medium mr-2">Output Type:</label>
+      <select id="outputType" class="border rounded px-2 py-1">
+        <option value="html">HTML</option>
+        <option value="svg">SVG</option>
+      </select>
+    </div>
+
+    <!-- Preview -->
+    <div class="mb-4 hidden" id="imagePreview">
+      <img id="previewImage" src="#" alt="Preview" class="rounded shadow max-w-full">
+    </div>
+
+    <!-- Generate -->
+    <button id="generateHTML" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded mb-4">Generate</button>
+
+    <!-- Output -->
+    <label class="block mb-2 font-medium text-gray-700">Output Code:</label>
+    <textarea id="htmlOutput" rows="10" class="w-full p-2 text-sm font-mono bg-gray-50 rounded border"></textarea>
+    <div class="flex gap-2 mt-2">
+      <button id="copyHTML" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">Copy</button>
+      <button id="saveImage" class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded">Save as PNG</button>
+    </div>
+
+    <!-- Rendered Pixel Art -->
+    <div id="pixelatedImage" class="mt-6 border p-4 rounded overflow-auto bg-white hidden"></div>
+  </div>
+
+  <script>
+    const imageUpload = document.getElementById('imageUpload');
+    const pixelAcrossSlider = document.getElementById('pixelAcrossSlider');
+    const pixelAcrossValue = document.getElementById('pixelAcrossValue');
+    const pixelHeightDisplay = document.getElementById('pixelHeightDisplay');
+    const outputType = document.getElementById('outputType');
+    const previewImage = document.getElementById('previewImage');
+    const imagePreview = document.getElementById('imagePreview');
+    const generateHTML = document.getElementById('generateHTML');
+    const htmlOutput = document.getElementById('htmlOutput');
+    const copyHTML = document.getElementById('copyHTML');
+    const saveImage = document.getElementById('saveImage');
+    const pixelatedImage = document.getElementById('pixelatedImage');
+    const fileName = document.getElementById('fileName');
+
+    let imgAspectRatio = 1;
+    let originalWidth = 0;
+
+    imageUpload.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const img = new Image();
+        img.onload = function () {
+          originalWidth = img.width;
+          imgAspectRatio = img.height / img.width;
+          pixelAcrossSlider.max = img.width;
+          pixelAcrossValue.textContent = pixelAcrossSlider.value;
+          pixelHeightDisplay.textContent = Math.round(pixelAcrossSlider.value * imgAspectRatio);
+          previewImage.src = img.src;
+          imagePreview.classList.remove('hidden');
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+      fileName.textContent = `Selected file: ${file.name}`;
+    });
+
+    pixelAcrossSlider.addEventListener('input', () => {
+      pixelAcrossValue.textContent = pixelAcrossSlider.value;
+      pixelHeightDisplay.textContent = Math.round(pixelAcrossSlider.value * imgAspectRatio);
+    });
+
+    generateHTML.addEventListener('click', () => {
+      const file = imageUpload.files[0];
+      if (!file) return alert("Please upload an image first.");
+
+      const targetPixelWidth = parseInt(pixelAcrossSlider.value);
+      const targetPixelHeight = Math.round(targetPixelWidth * imgAspectRatio);
+      const mode = outputType.value;
+
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const img = new Image();
+        img.onload = function () {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+
+          const xScale = img.width / targetPixelWidth;
+          const yScale = img.height / targetPixelHeight;
+
+          let output = '';
+          if (mode === 'html') {
+            output = `<div style="display:grid; grid-template-columns:repeat(${targetPixelWidth}, 0fr);">\n`;
+            for (let y = 0; y < targetPixelHeight; y++) {
+              for (let x = 0; x < targetPixelWidth; x++) {
+                const px = Math.floor(x * xScale);
+                const py = Math.floor(y * yScale);
+                const [r, g, b] = ctx.getImageData(px, py, 1, 1).data;
+                output += `<div class="pixel" style="background-color: rgb(${r},${g},${b}); width:10px; height:10px;"></div>`;
+              }
+            }
+            output += '\n</div>';
+          } else if (mode === 'svg') {
+            const rectSize = 10;
+            output = `<svg width="${targetPixelWidth * rectSize}" height="${targetPixelHeight * rectSize}" xmlns="http://www.w3.org/2000/svg">\n`;
+            for (let y = 0; y < targetPixelHeight; y++) {
+              for (let x = 0; x < targetPixelWidth; x++) {
+                const px = Math.floor(x * xScale);
+                const py = Math.floor(y * yScale);
+                const [r, g, b] = ctx.getImageData(px, py, 1, 1).data;
+                output += `<rect x="${x * rectSize}" y="${y * rectSize}" width="${rectSize}" height="${rectSize}" fill="rgb(${r},${g},${b})" />\n`;
+              }
+            }
+            output += `</svg>`;
+          }
+
+          htmlOutput.value = output;
+          pixelatedImage.innerHTML = output;
+          pixelatedImage.classList.remove('hidden');
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    copyHTML.addEventListener('click', () => {
+      navigator.clipboard.writeText(htmlOutput.value);
+      alert("HTML copied to clipboard!");
+    });
+
+    saveImage.addEventListener('click', () => {
+      html2canvas(pixelatedImage).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'pixel-art.png';
+        link.href = canvas.toDataURL();
+        link.click();
+      });
+    });
+  </script>
+</body>
+</html>
