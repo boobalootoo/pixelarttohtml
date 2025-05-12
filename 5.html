@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Art Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-6">
+  <div class="max-w-4xl mx-auto bg-white shadow-md rounded-xl p-6">
+    <h1 class="text-2xl font-bold mb-4">Pixel Art Generator</h1>
+
+    <!-- Upload Image -->
+    <input type="file" id="upload" accept="image/*" class="mb-4">
+    <img id="previewImage" class="max-w-full mb-4 hidden">
+
+    <!-- Pixel Controls -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <label class="block">
+        <span class="text-gray-700 font-medium">Pixels Across:</span>
+        <input type="number" id="pixelAcrossInput" min="1" class="w-full mt-1 p-1 border rounded" value="20">
+      </label>
+      <label class="block">
+        <span class="text-gray-700 font-medium">Pixels Up:</span>
+        <input type="number" id="pixelUpInput" min="1" class="w-full mt-1 p-1 border rounded" value="20">
+      </label>
+    </div>
+    <input type="range" min="5" max="100" value="20" id="pixelAcrossSlider" class="w-full hidden">
+
+    <!-- Action Buttons -->
+    <div class="flex flex-wrap gap-4 mb-4">
+      <button id="generateBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Generate</button>
+      <button id="copyBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Copy HTML</button>
+      <button id="saveBtn" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">Save PNG</button>
+    </div>
+
+    <!-- Output -->
+    <div id="output" class="overflow-auto whitespace-pre bg-gray-50 p-4 border rounded"></div>
+    <canvas id="canvas" class="hidden"></canvas>
+  </div>
+
+  <script>
+    const upload = document.getElementById('upload');
+    const previewImage = document.getElementById('previewImage');
+    const generateBtn = document.getElementById('generateBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const output = document.getElementById('output');
+    const canvas = document.getElementById('canvas');
+
+    const pixelAcrossInput = document.getElementById('pixelAcrossInput');
+    const pixelUpInput = document.getElementById('pixelUpInput');
+    const pixelAcrossSlider = document.getElementById('pixelAcrossSlider');
+
+    let img = new Image();
+    let originalWidth = 0;
+    let imgAspectRatio = 1;
+
+    upload.addEventListener('change', function () {
+      const file = this.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          img.onload = function () {
+            originalWidth = img.width;
+            imgAspectRatio = img.height / img.width;
+            pixelAcrossSlider.max = img.width;
+
+            const across = parseInt(pixelAcrossInput.value);
+            const up = Math.round(across * imgAspectRatio);
+            pixelUpInput.value = up;
+            pixelAcrossSlider.value = across;
+
+            previewImage.src = img.src;
+            previewImage.classList.remove('hidden');
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    pixelAcrossInput.addEventListener('input', () => {
+      const across = parseInt(pixelAcrossInput.value);
+      if (!isNaN(across) && imgAspectRatio) {
+        const up = Math.round(across * imgAspectRatio);
+        pixelUpInput.value = up;
+        pixelAcrossSlider.value = across;
+      }
+    });
+
+    pixelUpInput.addEventListener('input', () => {
+      const up = parseInt(pixelUpInput.value);
+      if (!isNaN(up) && imgAspectRatio) {
+        const across = Math.round(up / imgAspectRatio);
+        pixelAcrossInput.value = across;
+        pixelAcrossSlider.value = across;
+      }
+    });
+
+    generateBtn.addEventListener('click', () => {
+      const ctx = canvas.getContext('2d');
+      const pixelWidth = parseInt(pixelAcrossInput.value);
+      const pixelHeight = parseInt(pixelUpInput.value);
+      canvas.width = pixelWidth;
+      canvas.height = pixelHeight;
+      ctx.drawImage(img, 0, 0, pixelWidth, pixelHeight);
+
+      let html = '<div style="display:grid;grid-template-columns:repeat(' + pixelWidth + ',1fr);">';
+      const imageData = ctx.getImageData(0, 0, pixelWidth, pixelHeight);
+      const data = imageData.data;
+      for (let y = 0; y < pixelHeight; y++) {
+        for (let x = 0; x < pixelWidth; x++) {
+          const i = (y * pixelWidth + x) * 4;
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          html += `<div style="width:10px;height:10px;background-color:rgb(${r},${g},${b})"></div>`;
+        }
+      }
+      html += '</div>';
+      output.textContent = html;
+    });
+
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(output.textContent);
+    });
+
+    saveBtn.addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = 'pixelated.png';
+      link.href = canvas.toDataURL();
+      link.click();
+    });
+  </script>
+</body>
+</html>
